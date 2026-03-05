@@ -253,7 +253,8 @@ def interactive_menu():
         print("  [1] Run benchmark (interactive)")
         print("  [2] List providers")
         print("  [3] Show results")
-        print("  [4] Exit")
+        print("  [4] View results in browser")
+        print("  [5] Exit")
         
         choice = prompt("Choose an option")
         
@@ -264,6 +265,8 @@ def interactive_menu():
         elif choice == "3":
             show_results()
         elif choice == "4":
+            cmd_view(None)
+        elif choice == "5":
             print("\nGoodbye!")
             sys.exit(0)
         else:
@@ -283,6 +286,8 @@ def main():
         cmd_list_providers(args)
     elif args.command == "results":
         cmd_results(args)
+    elif args.command == "view":
+        cmd_view(args)
     elif args.command == "config":
         cmd_config(args)
 
@@ -304,6 +309,7 @@ def parse_args():
     
     subparsers.add_parser("list-providers", help="List available providers")
     subparsers.add_parser("results", help="Show results summary")
+    subparsers.add_parser("view", help="Open results in browser")
     subparsers.add_parser("config", help="Show configuration")
     
     return parser.parse_args()
@@ -345,6 +351,22 @@ def cmd_list_providers(args):
 
 def cmd_results(args):
     show_results()
+
+
+def cmd_view(args):
+    import webbrowser
+    import os
+    
+    docs_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "docs")
+    index_path = os.path.join(docs_dir, "index.html")
+    
+    if not os.path.exists(index_path):
+        print(f"Error: {index_path} not found")
+        sys.exit(1)
+    
+    file_url = f"file://{os.path.abspath(index_path)}"
+    print(f"Opening results viewer...")
+    webbrowser.open(file_url)
 
 
 def cmd_config(args):

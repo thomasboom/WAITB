@@ -36,23 +36,23 @@ class ResultsLogger:
                     "word",
                     "attempts",
                     "won",
+                    "guess_times",
                     "total_time",
-                    "avg_guess_time",
                 ])
     
     def log(self, result: GameResult):
         with open(self.csv_path, "a", newline="") as f:
             writer = csv.writer(f)
-            avg_time = sum(result.guess_times) / len(result.guess_times) if result.guess_times else 0
+            guess_times_str = ";".join(str(t) for t in result.guess_times) if result.guess_times else ""
             writer.writerow([
                 result.timestamp,
                 result.provider,
                 result.model,
                 result.word,
                 result.attempts,
-                result.won,
+                str(result.won).lower(),
+                guess_times_str,
                 round(result.total_time, 2),
-                round(avg_time, 2),
             ])
     
     def load(self) -> list[dict]:

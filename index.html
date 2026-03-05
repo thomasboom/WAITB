@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WAITB Results</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #0d1117;
+            color: #e6edf3;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            color: #58a6ff;
+        }
+        
+        .subtitle {
+            color: #8b949e;
+            margin-bottom: 2rem;
+        }
+        
+        .upload-section {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .upload-section h2 {
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            color: #c9d1d9;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 120px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #e6edf3;
+            padding: 0.75rem;
+            font-family: monospace;
+            font-size: 0.85rem;
+            resize: vertical;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+        
+        .btn {
+            background: #238636;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-top: 0.75rem;
+        }
+        
+        .btn:hover {
+            background: #2ea043;
+        }
+        
+        .file-input {
+            margin-top: 0.75rem;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 1.25rem;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #58a6ff;
+        }
+        
+        .stat-label {
+            color: #8b949e;
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+        }
+        
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .chart-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 1.5rem;
+        }
+        
+        .chart-card h3 {
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            color: #c9d1d9;
+        }
+        
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .results-table th,
+        .results-table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid #30363d;
+        }
+        
+        .results-table th {
+            background: #21262d;
+            color: #8b949e;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        
+        .results-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .win { color: #3fb950; }
+        .loss { color: #f85149; }
+        
+        .provider-badge {
+            display: inline-block;
+            background: #21262d;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            color: #c9d1d9;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #8b949e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>WAITB Results</h1>
+        <p class="subtitle">Wordle AI Terminal Benchmark - Results Viewer</p>
+        
+        <div class="upload-section">
+            <h2>Load Results</h2>
+            <textarea id="csvInput" placeholder="Paste CSV data here (timestamp,provider,model,word,attempts,won,guess_times,total_time)"></textarea>
+            <div>
+                <button class="btn" onclick="loadFromText()">Load from Text</button>
+                <input type="file" id="fileInput" class="file-input" accept=".csv" onchange="loadFromFile(event)">
+            </div>
+        </div>
+        
+        <div id="results" style="display: none;">
+            <div class="stats-grid" id="statsGrid"></div>
+            
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <h3>Win Rate by Provider</h3>
+                    <canvas id="winRateChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>Average Attempts by Provider</h3>
+                    <canvas id="attemptsChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>Games Over Time</h3>
+                    <canvas id="timelineChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>Average Time per Game</h3>
+                    <canvas id="timeChart"></canvas>
+                </div>
+            </div>
+            
+            <h3 style="margin-bottom: 1rem; color: #c9d1d9;">Game Details</h3>
+            <table class="results-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Provider</th>
+                        <th>Model</th>
+                        <th>Word</th>
+                        <th>Attempts</th>
+                        <th>Result</th>
+                        <th>Time</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody"></tbody>
+            </table>
+        </div>
+        
+        <div id="emptyState" class="empty-state">
+            Load CSV data above to view results
+        </div>
+    </div>
+    
+    <script>
+        let results = [];
+        let charts = {};
+        
+        function parseCSV(text) {
+            const lines = text.trim().split('\n');
+            if (lines.length < 2) return [];
+            
+            const headers = lines[0].split(',').map(h => h.trim());
+            const data = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',').map(v => v.trim());
+                if (values.length < headers.length) continue;
+                
+                const row = {};
+                headers.forEach((h, idx) => {
+                    row[h] = values[idx];
+                });
+                
+                row.attempts = parseInt(row.attempts) || 0;
+                row.won = row.won === 'true';
+                row.total_time = parseFloat(row.total_time) || 0;
+                row.guess_times = row.guess_times ? row.guess_times.split(';').map(parseFloat) : [];
+                
+                data.push(row);
+            }
+            
+            return data;
+        }
+        
+        function loadFromText() {
+            const text = document.getElementById('csvInput').value;
+            results = parseCSV(text);
+            renderResults();
+        }
+        
+        function loadFromFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('csvInput').value = e.target.result;
+                loadFromText();
+            };
+            reader.readAsText(file);
+        }
+        
+        function renderResults() {
+            if (results.length === 0) {
+                document.getElementById('emptyState').style.display = 'block';
+                document.getElementById('results').style.display = 'none';
+                return;
+            }
+            
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('results').style.display = 'block';
+            
+            renderStats();
+            renderCharts();
+            renderTable();
+        }
+        
+        function renderStats() {
+            const total = results.length;
+            const wins = results.filter(r => r.won).length;
+            const winRate = total > 0 ? (wins / total * 100).toFixed(1) : 0;
+            const avgAttempts = total > 0 ? (results.reduce((sum, r) => sum + r.attempts, 0) / total).toFixed(1) : 0;
+            const avgTime = total > 0 ? (results.reduce((sum, r) => sum + r.total_time, 0) / total).toFixed(1) : 0;
+            
+            document.getElementById('statsGrid').innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${total}</div>
+                    <div class="stat-label">Total Games</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${winRate}%</div>
+                    <div class="stat-label">Win Rate</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${avgAttempts}</div>
+                    <div class="stat-label">Avg Attempts</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${avgTime}s</div>
+                    <div class="stat-label">Avg Time</div>
+                </div>
+            `;
+        }
+        
+        function renderCharts() {
+            Object.values(charts).forEach(c => c.destroy());
+            charts = {};
+            
+            const providers = [...new Set(results.map(r => r.provider))];
+            const providerWins = {};
+            const providerGames = {};
+            const providerAttempts = {};
+            const providerTime = {};
+            
+            providers.forEach(p => {
+                providerWins[p] = 0;
+                providerGames[p] = 0;
+                providerAttempts[p] = 0;
+                providerTime[p] = 0;
+            });
+            
+            results.forEach(r => {
+                providerGames[r.provider]++;
+                if (r.won) providerWins[r.provider]++;
+                providerAttempts[r.provider] += r.attempts;
+                providerTime[r.provider] += r.total_time;
+            });
+            
+            const winRates = providers.map(p => 
+                providerGames[p] > 0 ? (providerWins[p] / providerGames[p] * 100).toFixed(1) : 0
+            );
+            const avgAttempts = providers.map(p => 
+                providerGames[p] > 0 ? (providerAttempts[p] / providerGames[p]).toFixed(1) : 0
+            );
+            const avgTimes = providers.map(p => 
+                providerGames[p] > 0 ? (providerTime[p] / providerGames[p]).toFixed(1) : 0
+            );
+            
+            const colors = ['#58a6ff', '#3fb950', '#f0883e', '#a371f7', '#f85149', '#79c0ff'];
+            
+            charts.winRate = new Chart(document.getElementById('winRateChart'), {
+                type: 'bar',
+                data: {
+                    labels: providers,
+                    datasets: [{
+                        label: 'Win Rate (%)',
+                        data: winRates,
+                        backgroundColor: colors.slice(0, providers.length),
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, max: 100, grid: { color: '#30363d' }, ticks: { color: '#8b949e' } },
+                        x: { grid: { color: '#30363d' }, ticks: { color: '#8b949e' } }
+                    }
+                }
+            });
+            
+            charts.attempts = new Chart(document.getElementById('attemptsChart'), {
+                type: 'bar',
+                data: {
+                    labels: providers,
+                    datasets: [{
+                        label: 'Avg Attempts',
+                        data: avgAttempts,
+                        backgroundColor: colors.slice(0, providers.length),
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#30363d' }, ticks: { color: '#8b949e' } },
+                        x: { grid: { color: '#30363d' }, ticks: { color: '#8b949e' } }
+                    }
+                }
+            });
+            
+            const sortedByDate = [...results].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            const gameNumbers = sortedByDate.map((_, i) => `Game ${i + 1}`);
+            const gameTimes = sortedByDate.map(r => r.total_time.toFixed(1));
+            const gameResults = sortedByDate.map(r => r.won ? 1 : 0);
+            
+            charts.timeline = new Chart(document.getElementById('timelineChart'), {
+                type: 'line',
+                data: {
+                    labels: gameNumbers,
+                    datasets: [{
+                        label: 'Attempts',
+                        data: sortedByDate.map(r => r.attempts),
+                        borderColor: '#58a6ff',
+                        backgroundColor: 'rgba(88, 166, 255, 0.1)',
+                        yAxisID: 'y',
+                    }, {
+                        label: 'Won',
+                        data: gameResults,
+                        borderColor: '#3fb950',
+                        backgroundColor: 'rgba(63, 185, 80, 0.1)',
+                        yAxisID: 'y1',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        y: { type: 'linear', position: 'left', grid: { color: '#30363d' }, ticks: { color: '#8b949e' } },
+                        y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, ticks: { color: '#8b949e' }, min: 0, max: 1 },
+                        x: { grid: { color: '#30363d' }, ticks: { color: '#8b949e' } }
+                    }
+                }
+            });
+            
+            charts.time = new Chart(document.getElementById('timeChart'), {
+                type: 'bar',
+                data: {
+                    labels: providers,
+                    datasets: [{
+                        label: 'Avg Time (s)',
+                        data: avgTimes,
+                        backgroundColor: colors.slice(0, providers.length),
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#30363d' }, ticks: { color: '#8b949e' } },
+                        x: { grid: { color: '#30363d' }, ticks: { color: '#8b949e' } }
+                    }
+                }
+            });
+        }
+        
+        function renderTable() {
+            const sorted = [...results].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            document.getElementById('resultsBody').innerHTML = sorted.map(r => {
+                const date = new Date(r.timestamp).toLocaleDateString();
+                return `
+                    <tr>
+                        <td>${date}</td>
+                        <td><span class="provider-badge">${r.provider}</span></td>
+                        <td>${r.model}</td>
+                        <td>${r.word}</td>
+                        <td>${r.attempts}</td>
+                        <td class="${r.won ? 'win' : 'loss'}">${r.won ? 'WIN' : 'LOSS'}</td>
+                        <td>${r.total_time.toFixed(1)}s</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        // Load from file on page load if URL has ?file= parameter
+        const params = new URLSearchParams(window.location.search);
+        const csvFile = params.get('file');
+        if (csvFile) {
+            fetch(csvFile)
+                .then(r => r.text())
+                .then(text => {
+                    document.getElementById('csvInput').value = text;
+                    loadFromText();
+                });
+        }
+    </script>
+</body>
+</html>
