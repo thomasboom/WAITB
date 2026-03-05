@@ -395,7 +395,13 @@
                 if (models.length === 0) return;
                 
                 const avgAttempts = models.map(m => Math.round(modelStats[m].totalAttempts / modelStats[m].games));
-                const barColors = models.map(m => modelStats[m].wins === modelStats[m].games ? '#1a1a1a' : '#cccccc');
+                
+                const palette = ['#1a1a1a', '#c44536', '#2d6a4f', '#457b9d', '#8338ec', '#ff6b6b', '#f4a261', '#e76f51', '#264653', '#a8dadc'];
+                const barColors = models.map((m, i) => {
+                    const isAllWins = modelStats[m].wins === modelStats[m].games;
+                    return isAllWins ? palette[i % palette.length] : '#cccccc';
+                });
+                const tooltipBorderColors = models.map((m, i) => palette[i % palette.length]);
             
             charts.attempts = new Chart(document.getElementById('attemptsChart'), {
                 type: 'bar',
@@ -405,6 +411,8 @@
                         label: 'Avg Attempts',
                         data: avgAttempts,
                         backgroundColor: barColors,
+                        borderColor: barColors,
+                        borderWidth: 2,
                         borderRadius: 3,
                         barThickness: 40,
                     }]
@@ -416,6 +424,12 @@
                     plugins: { 
                         legend: { display: false },
                         tooltip: {
+                            backgroundColor: '#fff',
+                            titleColor: '#1a1a1a',
+                            bodyColor: '#1a1a1a',
+                            borderColor: (context) => tooltipBorderColors[context.dataIndex] || '#1a1a1a',
+                            borderWidth: 2,
+                            cornerRadius: 4,
                             callbacks: {
                                 afterLabel: function(context) {
                                     const model = models[context.dataIndex];
