@@ -1,15 +1,5 @@
 timestamp,provider,model,word,attempts,won,total_time,avg_guess_time
 2026-03-05T12:21:54.771165,ollama,kimi-k2.5:cloud,CLOCK,4,True,145.97,36.49
-2026-03-05T12:27:30.419535,ollama,default,RADIO,0,False,0,0
-2026-03-05T12:27:30.439362,ollama,default,PARTY,0,False,0,0
-2026-03-05T12:27:30.456397,ollama,default,SHOES,0,False,0,0
-2026-03-05T12:27:30.473668,ollama,default,EARTH,0,False,0,0
-2026-03-05T12:27:30.508522,ollama,default,DIARY,0,False,0,0
-2026-03-05T12:27:30.542897,ollama,default,NIGHT,0,False,0,0
-2026-03-05T12:27:30.571884,ollama,default,ZEBRA,0,False,0,0
-2026-03-05T12:27:30.607679,ollama,default,HUMAN,0,False,0,0
-2026-03-05T12:27:30.651226,ollama,default,OCEAN,0,False,0,0
-2026-03-05T12:27:30.667090,ollama,default,BRUSH,0,False,0,0
 2026-03-05T12:32:51.465197,ollama,gpt-oss:120b-cloud,WATCH,6,True,47.73,7.96
 2026-03-05T12:33:00.492220,ollama,gpt-oss:120b-cloud,WHALE,2,True,9.03,4.51
 2026-03-05T12:37:24.083110,ollama,gpt-oss:120b-cloud,CHORD,4,True,20.81,5.2
