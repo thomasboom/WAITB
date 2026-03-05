@@ -24,6 +24,33 @@
                 --loss: #c44536;
             }
 
+            @media (prefers-color-scheme: dark) {
+                :root {
+                    --ink: #e8e6e3;
+                    --paper: #1a1a1a;
+                    --paper-dark: #2a2a2a;
+                    --accent: #e06c5c;
+                    --accent-light: #4a3a38;
+                    --muted: #9a9590;
+                    --line: #3a3a3a;
+                    --win: #4a9f7f;
+                    --loss: #e06c5c;
+                    --chart-grid: #3a3a3a;
+                    --chart-tooltip-bg: #2a2a2a;
+                    --chart-tooltip-text: #e8e6e3;
+                    --chart-bar-default: #e8e6e3;
+                }
+            }
+
+            @media (prefers-color-scheme: light) {
+                :root {
+                    --chart-grid: #d4cfc7;
+                    --chart-tooltip-bg: #fff;
+                    --chart-tooltip-text: #1a1a1a;
+                    --chart-bar-default: #1a1a1a;
+                }
+            }
+
             * {
                 margin: 0;
                 padding: 0;
@@ -134,7 +161,7 @@
             }
 
             .chart-card {
-                background: white;
+                background: var(--paper);
                 border: 1px solid var(--line);
                 border-radius: 4px;
                 padding: 1.5rem;
@@ -447,7 +474,11 @@
                         ),
                     );
 
-                    const palette = [
+                    const isDarkMode = window.matchMedia(
+                        "(prefers-color-scheme: dark)",
+                    ).matches;
+
+                    const lightPalette = [
                         "#1a1a1a",
                         "#c44536",
                         "#2d6a4f",
@@ -459,12 +490,28 @@
                         "#264653",
                         "#a8dadc",
                     ];
+                    const darkPalette = [
+                        "#e8e6e3",
+                        "#e06c5c",
+                        "#4a9f7f",
+                        "#5b9dc9",
+                        "#9d5dff",
+                        "#ff8b8b",
+                        "#f4b671",
+                        "#f48b6b",
+                        "#3b6d7f",
+                        "#b8e8f0",
+                    ];
+                    const palette = isDarkMode ? darkPalette : lightPalette;
+
                     const barColors = models.map((m, i) => {
                         const isAllWins =
                             modelStats[m].wins === modelStats[m].games;
                         return isAllWins
                             ? palette[i % palette.length]
-                            : "#cccccc";
+                            : isDarkMode
+                              ? "#666666"
+                              : "#cccccc";
                     });
                     const tooltipBorderColors = models.map(
                         (m, i) => palette[i % palette.length],
@@ -495,9 +542,30 @@
                                 plugins: {
                                     legend: { display: false },
                                     tooltip: {
-                                        backgroundColor: "#fff",
-                                        titleColor: "#1a1a1a",
-                                        bodyColor: "#1a1a1a",
+                                        backgroundColor:
+                                            getComputedStyle(
+                                                document.documentElement,
+                                            )
+                                                .getPropertyValue(
+                                                    "--chart-tooltip-bg",
+                                                )
+                                                .trim() || "#fff",
+                                        titleColor:
+                                            getComputedStyle(
+                                                document.documentElement,
+                                            )
+                                                .getPropertyValue(
+                                                    "--chart-tooltip-text",
+                                                )
+                                                .trim() || "#1a1a1a",
+                                        bodyColor:
+                                            getComputedStyle(
+                                                document.documentElement,
+                                            )
+                                                .getPropertyValue(
+                                                    "--chart-tooltip-text",
+                                                )
+                                                .trim() || "#1a1a1a",
                                         borderColor: (context) =>
                                             tooltipBorderColors[
                                                 context.dataIndex
@@ -523,7 +591,16 @@
                                     y: {
                                         beginAtZero: true,
                                         max: 7,
-                                        grid: { color: "#d4cfc7" },
+                                        grid: {
+                                            color:
+                                                getComputedStyle(
+                                                    document.documentElement,
+                                                )
+                                                    .getPropertyValue(
+                                                        "--chart-grid",
+                                                    )
+                                                    .trim() || "#d4cfc7",
+                                        },
                                         border: { display: false },
                                         title: {
                                             display: true,
