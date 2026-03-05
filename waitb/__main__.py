@@ -13,39 +13,6 @@ from waitb.results import ResultsLogger, GameResult
 from waitb.config import Config
 
 
-PROVIDER_MODELS = {
-    "openai": [
-        ("gpt-4o", "GPT-4o (latest, recommended)"),
-        ("gpt-4o-mini", "GPT-4o Mini (fast)"),
-        ("gpt-4", "GPT-4"),
-        ("gpt-3.5-turbo", "GPT-3.5 Turbo (fast)"),
-    ],
-    "anthropic": [
-        ("claude-3-5-sonnet-20241022", "Claude 3.5 Sonnet (recommended)"),
-        ("claude-3-opus-20240229", "Claude 3 Opus"),
-        ("claude-3-haiku-20240307", "Claude 3 Haiku (fast)"),
-    ],
-    "google": [
-        ("gemini-1.5-flash", "Gemini 1.5 Flash (recommended)"),
-        ("gemini-1.5-pro", "Gemini 1.5 Pro"),
-        ("gemini-1.0-pro", "Gemini 1.0 Pro"),
-    ],
-    "ollama": [
-        ("llama3.2", "Llama 3.2 (recommended)"),
-        ("llama3.1", "Llama 3.1"),
-        ("llama2", "Llama 2"),
-        ("mistral", "Mistral"),
-        ("phi3", "Phi-3"),
-        ("custom", "Enter custom model name..."),
-    ],
-    "groq": [
-        ("llama-3.1-70b-versatile", "Llama 3.1 70B (recommended)"),
-        ("llama-3.1-8b-instant", "Llama 3.1 8B (fast)"),
-        ("mixtral-8x7b-32768", "Mixtral 8x7B"),
-    ],
-}
-
-
 def prompt(prompt_text: str) -> str:
     return input(f"\n{prompt_text}: ").strip()
 
@@ -127,16 +94,7 @@ def setup_provider_interactive() -> tuple:
         api_key = None
         print("No API key required (local provider)")
     
-    models = PROVIDER_MODELS.get(provider_name, [])
-    if models:
-        model_choices = [m[1] for m in models]
-        model_idx = prompt_choice("Select model", model_choices)
-        model = models[model_idx][0]
-        
-        if models[model_idx][0] == "custom":
-            model = prompt("Enter custom model name")
-    else:
-        model = prompt("Enter model name")
+    model = prompt("Enter model name").strip()
     
     print(f"\nProvider: {provider_name}")
     print(f"Model: {model}")
@@ -280,12 +238,6 @@ def show_providers():
             print(f"  API Key: {env_var}")
         else:
             print(f"  API Key: None (local)")
-        
-        models = PROVIDER_MODELS.get(p, [])
-        if models:
-            print("  Models:")
-            for m in models:
-                print(f"    - {m[1]}")
 
 
 def show_results():
