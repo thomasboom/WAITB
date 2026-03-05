@@ -1,3 +1,3 @@
 # Credits
 
-English word list in `valid.txt`: https://github.com/tabatkins/wordle-list
+English word list in `words.txt`: https://github.com/tabatkins/wordle-list
