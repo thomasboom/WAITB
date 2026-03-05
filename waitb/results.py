@@ -2,8 +2,10 @@
 
 import csv
 import os
+import uuid
 from datetime import datetime
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass
@@ -16,10 +18,13 @@ class GameResult:
     won: bool
     guess_times: list[float]
     total_time: float
+    guesses: Optional[list[str]] = None
+    feedbacks: Optional[list[str]] = None
+    game_id: Optional[str] = None
 
 
 class ResultsLogger:
-    def __init__(self, csv_path: str = None):
+    def __init__(self, csv_path: Optional[str] = None):
         if csv_path is None:
             csv_path = os.path.join(os.getcwd(), "waitb_results.csv")
         self.csv_path = csv_path
@@ -30,30 +35,61 @@ class ResultsLogger:
             with open(self.csv_path, "w", newline="") as f:
                 writer = csv.writer(f)
                 writer.writerow([
+                    "game_id",
                     "timestamp",
                     "provider",
                     "model",
                     "word",
+                    "try_num",
+                    "guess",
+                    "feedback",
+                    "guess_time",
                     "attempts",
                     "won",
-                    "guess_times",
                     "total_time",
                 ])
     
     def log(self, result: GameResult):
-        with open(self.csv_path, "a", newline="") as f:
-            writer = csv.writer(f)
-            guess_times_str = ";".join(str(t) for t in result.guess_times) if result.guess_times else ""
-            writer.writerow([
-                result.timestamp,
-                result.provider,
-                result.model,
-                result.word,
-                result.attempts,
-                str(result.won).lower(),
-                guess_times_str,
-                round(result.total_time, 2),
-            ])
+        game_id = result.game_id or str(uuid.uuid4())[:8]
+        
+        if result.guesses and result.feedbacks:
+            for i, (guess, feedback) in enumerate(zip(result.guesses, result.feedbacks)):
+                guess_time = result.guess_times[i] if i < len(result.guess_times) else 0
+                feedback_str = "".join(f for f in feedback)
+                with open(self.csv_path, "a", newline="") as f:
+                    writer = csv.writer(f)
+                    writer.writerow([
+                        game_id,
+                        result.timestamp,
+                        result.provider,
+                        result.model,
+                        result.word,
+                        i + 1,
+                        guess,
+                        feedback_str,
+                        round(guess_time, 2),
+                        result.attempts,
+                        str(result.won).lower(),
+                        round(result.total_time, 2),
+                    ])
+        else:
+            with open(self.csv_path, "a", newline="") as f:
+                writer = csv.writer(f)
+                guess_times_str = ";".join(str(t) for t in result.guess_times) if result.guess_times else ""
+                writer.writerow([
+                    game_id,
+                    result.timestamp,
+                    result.provider,
+                    result.model,
+                    result.word,
+                    "",
+                    "",
+                    "",
+                    "",
+                    result.attempts,
+                    str(result.won).lower(),
+                    round(result.total_time, 2),
+                ])
     
     def load(self) -> list[dict]:
         results = []

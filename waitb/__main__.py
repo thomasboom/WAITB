@@ -228,6 +228,8 @@ def run_game(
         won=game.won,
         guess_times=guess_times,
         total_time=total_time,
+        guesses=game.attempts,
+        feedbacks=game.feedbacks,
     )
 
     if csv_path:

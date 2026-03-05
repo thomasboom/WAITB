@@ -62,6 +62,7 @@ class WordleGame:
         self.target = (target or get_random_word()).upper()
         self.max_attempts = max_attempts
         self.attempts = []
+        self.feedbacks = []
         self.game_over = False
         self.won = False
 
@@ -120,6 +121,7 @@ class WordleGame:
         self.attempts.append(guess)
 
         feedback = self.get_feedback(guess)
+        self.feedbacks.append(feedback)
 
         if guess == self.target:
             self.game_over = True
