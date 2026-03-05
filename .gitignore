@@ -29,7 +29,6 @@ env/
 venv/
 ENV/
 
-*.csv
 waitb_config.json
 
 .idea/

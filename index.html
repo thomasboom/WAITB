@@ -479,17 +479,19 @@
             }).join('');
         }
         
-        // Load from file on page load if URL has ?file= parameter
-        const params = new URLSearchParams(window.location.search);
-        const csvFile = params.get('file');
-        if (csvFile) {
-            fetch(csvFile)
-                .then(r => r.text())
-                .then(text => {
-                    document.getElementById('csvInput').value = text;
-                    loadFromText();
-                });
-        }
+        // Auto-load CSV on page load
+        fetch('results/waitb_results.csv')
+            .then(r => {
+                if (r.ok) return r.text();
+                throw new Error('CSV not found');
+            })
+            .then(text => {
+                document.getElementById('csvInput').value = text;
+                loadFromText();
+            })
+            .catch(() => {
+                // No CSV found, show empty state
+            });
     </script>
 </body>
 </html>
