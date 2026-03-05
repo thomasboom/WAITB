@@ -384,7 +384,7 @@
                 
                 results.forEach(r => {
                     if (!modelStats[r.model]) {
-                        modelStats[r.model] = { totalAttempts: 0, games: 0, wins: 0 };
+                        modelStats[r.model] = { totalAttempts: 0, games: 0, wins: 0, provider: r.provider };
                     }
                     modelStats[r.model].totalAttempts += r.attempts;
                     modelStats[r.model].games += 1;
@@ -420,7 +420,7 @@
                                 afterLabel: function(context) {
                                     const model = models[context.dataIndex];
                                     const stats = modelStats[model];
-                                    return `Games: ${stats.games} | Wins: ${stats.wins}`;
+                                    return [stats.provider, `Games: ${stats.games}`, `Wins: ${stats.wins}`];
                                 }
                             }
                         }
