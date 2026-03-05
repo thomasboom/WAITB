@@ -70,10 +70,6 @@ def setup_provider_interactive() -> tuple:
     print("=" * 50)
     
     providers = list_providers()
-    print("\nAvailable providers:")
-    for i, p in enumerate(providers):
-        print(f"  [{i + 1}] {p}")
-    
     idx = prompt_choice("Select provider", providers)
     provider_name = providers[idx]
     
