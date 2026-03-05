@@ -1,6 +1,7 @@
-"""Main CLI entry point"""
+"""Main CLI entry point - Interactive Mode"""
 
 import argparse
+import os
 import sys
 import time
 import re
@@ -12,26 +13,73 @@ from waitb.results import ResultsLogger, GameResult
 from waitb.config import Config
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(
-        description="WAITB - Wordle AI Terminal Benchmark",
-        prog="waitb"
-    )
+PROVIDER_MODELS = {
+    "openai": [
+        ("gpt-4o", "GPT-4o (latest, recommended)"),
+        ("gpt-4o-mini", "GPT-4o Mini (fast)"),
+        ("gpt-4", "GPT-4"),
+        ("gpt-3.5-turbo", "GPT-3.5 Turbo (fast)"),
+    ],
+    "anthropic": [
+        ("claude-3-5-sonnet-20241022", "Claude 3.5 Sonnet (recommended)"),
+        ("claude-3-opus-20240229", "Claude 3 Opus"),
+        ("claude-3-haiku-20240307", "Claude 3 Haiku (fast)"),
+    ],
+    "google": [
+        ("gemini-1.5-flash", "Gemini 1.5 Flash (recommended)"),
+        ("gemini-1.5-pro", "Gemini 1.5 Pro"),
+        ("gemini-1.0-pro", "Gemini 1.0 Pro"),
+    ],
+    "ollama": [
+        ("llama3.2", "Llama 3.2 (recommended)"),
+        ("llama3.1", "Llama 3.1"),
+        ("llama2", "Llama 2"),
+        ("mistral", "Mistral"),
+        ("phi3", "Phi-3"),
+        ("custom", "Enter custom model name..."),
+    ],
+    "groq": [
+        ("llama-3.1-70b-versatile", "Llama 3.1 70B (recommended)"),
+        ("llama-3.1-8b-instant", "Llama 3.1 8B (fast)"),
+        ("mixtral-8x7b-32768", "Mixtral 8x7B"),
+    ],
+}
+
+
+def prompt(prompt_text: str) -> str:
+    return input(f"\n{prompt_text}: ").strip()
+
+
+def prompt_choice(prompt_text: str, choices: list, show_numbers: bool = True) -> int:
+    print(f"\n{prompt_text}:")
+    for i, choice in enumerate(choices):
+        if show_numbers:
+            print(f"  [{i + 1}] {choice}")
+        else:
+            print(f"  - {choice}")
     
-    subparsers = parser.add_subparsers(dest="command", help="Commands")
-    
-    run_parser = subparsers.add_parser("run", help="Run a benchmark game")
-    run_parser.add_argument("--provider", "-p", help="LLM provider to use")
-    run_parser.add_argument("--model", "-m", help="Model to use")
-    run_parser.add_argument("--games", "-g", type=int, default=1, help="Number of games to play")
-    run_parser.add_argument("--word", "-w", help="Specific word to play (random if not set)")
-    run_parser.add_argument("--csv", help="Path to CSV results file")
-    
-    subparsers.add_parser("list-providers", help="List available providers")
-    subparsers.add_parser("results", help="Show results summary")
-    subparsers.add_parser("config", help="Show configuration")
-    
-    return parser.parse_args()
+    while True:
+        try:
+            if show_numbers:
+                idx = int(prompt("Enter number"))
+                if 1 <= idx <= len(choices):
+                    return idx - 1
+            else:
+                val = prompt("Enter value")
+                if val in choices:
+                    return val
+        except ValueError:
+            pass
+        print("Invalid choice, try again.")
+
+
+def prompt_yes_no(prompt_text: str) -> bool:
+    while True:
+        resp = prompt(f"{prompt_text} (y/n)").lower().strip()
+        if resp in ("y", "yes"):
+            return True
+        elif resp in ("n", "no"):
+            return False
 
 
 def extract_guess(response: str) -> str:
@@ -49,7 +97,54 @@ def extract_guess(response: str) -> str:
     return None
 
 
-def run_game(provider, model: str, target_word: str = None, csv_path: str = None):
+def setup_provider_interactive() -> tuple:
+    print("\n" + "=" * 50)
+    print("PROVIDER SETUP")
+    print("=" * 50)
+    
+    providers = list_providers()
+    print("\nAvailable providers:")
+    for i, p in enumerate(providers):
+        print(f"  [{i + 1}] {p}")
+    
+    idx = prompt_choice("Select provider", providers)
+    provider_name = providers[idx]
+    
+    provider = get_provider(provider_name)
+    env_var = provider.get_api_key_env()
+    
+    if env_var:
+        existing_key = os.environ.get(env_var, "")
+        use_existing = prompt_yes_no(f"Use existing {env_var}?")
+        
+        if use_existing and existing_key:
+            api_key = existing_key
+            print(f"Using existing API key (starts with {api_key[:8]}...)")
+        else:
+            api_key = prompt(f"Enter {env_var}")
+            os.environ[env_var] = api_key
+    else:
+        api_key = None
+        print("No API key required (local provider)")
+    
+    models = PROVIDER_MODELS.get(provider_name, [])
+    if models:
+        model_choices = [m[1] for m in models]
+        model_idx = prompt_choice("Select model", model_choices)
+        model = models[model_idx][0]
+        
+        if models[model_idx][0] == "custom":
+            model = prompt("Enter custom model name")
+    else:
+        model = prompt("Enter model name")
+    
+    print(f"\nProvider: {provider_name}")
+    print(f"Model: {model}")
+    
+    return provider, model
+
+
+def run_game(provider, model: str = None, target_word: str = None, csv_path: str = None):
     print(f"\n{'='*50}")
     print(f"Starting Wordle game")
     if target_word:
@@ -67,9 +162,9 @@ def run_game(provider, model: str, target_word: str = None, csv_path: str = None
     
     while not game.game_over:
         game_state = game.get_state_for_ai()
-        prompt = provider.get_turn_prompt(game_state)
+        prompt_text = provider.get_turn_prompt(game_state)
         
-        messages.append(Message(role="user", content=prompt))
+        messages.append(Message(role="user", content=prompt_text))
         
         try:
             guess_start = time.time()
@@ -131,6 +226,141 @@ def run_game(provider, model: str, target_word: str = None, csv_path: str = None
     return result
 
 
+def run_benchmark_interactive():
+    provider, model = setup_provider_interactive()
+    
+    print("\n" + "=" * 50)
+    print("GAME SETUP")
+    print("=" * 50)
+    
+    num_games = prompt("How many games to play? (default: 1)")
+    if not num_games:
+        num_games = 1
+    else:
+        num_games = int(num_games)
+    
+    use_specific_word = prompt_yes_no("Use a specific word?")
+    if use_specific_word:
+        target_word = prompt("Enter the 5-letter word").upper()
+    else:
+        target_word = None
+    
+    save_results = prompt_yes_no("Save results to CSV?")
+    if save_results:
+        csv_path = prompt("CSV file path (default: waitb_results.csv)")
+        if not csv_path:
+            csv_path = "waitb_results.csv"
+    else:
+        csv_path = None
+    
+    for i in range(num_games):
+        if num_games > 1:
+            print(f"\n{'='*50}")
+            print(f"GAME {i + 1}/{num_games}")
+            print(f"{'='*50}")
+        
+        target = target_word
+        run_game(provider, model, target, csv_path)
+    
+    if csv_path and num_games > 1:
+        print(f"\nAll games complete! Results saved to {csv_path}")
+
+
+def show_providers():
+    print("\n" + "=" * 50)
+    print("AVAILABLE PROVIDERS")
+    print("=" * 50)
+    
+    for p in list_providers():
+        print(f"\n{p.upper()}:")
+        provider = get_provider(p)
+        env_var = provider.get_api_key_env()
+        
+        if env_var:
+            print(f"  API Key: {env_var}")
+        else:
+            print(f"  API Key: None (local)")
+        
+        models = PROVIDER_MODELS.get(p, [])
+        if models:
+            print("  Models:")
+            for m in models:
+                print(f"    - {m[1]}")
+
+
+def show_results():
+    print("\n" + "=" * 50)
+    print("RESULTS SUMMARY")
+    print("=" * 50)
+    
+    logger = ResultsLogger()
+    logger.print_summary()
+
+
+def interactive_menu():
+    while True:
+        print("\n" + "=" * 50)
+        print("WAITB - Wordle AI Terminal Benchmark")
+        print("=" * 50)
+        print("  [1] Run benchmark (interactive)")
+        print("  [2] List providers")
+        print("  [3] Show results")
+        print("  [4] Exit")
+        
+        choice = prompt("Choose an option")
+        
+        if choice == "1":
+            run_benchmark_interactive()
+        elif choice == "2":
+            show_providers()
+        elif choice == "3":
+            show_results()
+        elif choice == "4":
+            print("\nGoodbye!")
+            sys.exit(0)
+        else:
+            print("Invalid choice, try again.")
+
+
+def main():
+    args = parse_args()
+    
+    if not args.command:
+        interactive_menu()
+        return
+    
+    if args.command == "run":
+        cmd_run(args)
+    elif args.command == "list-providers":
+        cmd_list_providers(args)
+    elif args.command == "results":
+        cmd_results(args)
+    elif args.command == "config":
+        cmd_config(args)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="WAITB - Wordle AI Terminal Benchmark",
+        prog="waitb"
+    )
+    
+    subparsers = parser.add_subparsers(dest="command", help="Commands")
+    
+    run_parser = subparsers.add_parser("run", help="Run a benchmark game")
+    run_parser.add_argument("--provider", "-p", help="LLM provider to use")
+    run_parser.add_argument("--model", "-m", help="Model to use")
+    run_parser.add_argument("--games", "-g", type=int, default=1, help="Number of games to play")
+    run_parser.add_argument("--word", "-w", help="Specific word to play (random if not set)")
+    run_parser.add_argument("--csv", help="Path to CSV results file")
+    
+    subparsers.add_parser("list-providers", help="List available providers")
+    subparsers.add_parser("results", help="Show results summary")
+    subparsers.add_parser("config", help="Show configuration")
+    
+    return parser.parse_args()
+
+
 def cmd_run(args):
     config = Config()
     
@@ -162,18 +392,11 @@ def cmd_run(args):
 
 
 def cmd_list_providers(args):
-    print("Available LLM providers:")
-    for p in list_providers():
-        env_var = get_provider(p).get_api_key_env()
-        if env_var:
-            print(f"  - {p} (set {env_var})")
-        else:
-            print(f"  - {p} (no API key)")
+    show_providers()
 
 
 def cmd_results(args):
-    logger = ResultsLogger()
-    logger.print_summary()
+    show_results()
 
 
 def cmd_config(args):
@@ -181,27 +404,6 @@ def cmd_config(args):
     print("Current configuration:")
     for key, value in config.data.items():
         print(f"  {key}: {value}")
-
-
-def main():
-    import os
-    
-    args = parse_args()
-    
-    if not args.command:
-        print("WAITB - Wordle AI Terminal Benchmark")
-        print("Use 'waitb run --help' to get started")
-        print("Use 'waitb list-providers' to see available providers")
-        sys.exit(1)
-    
-    if args.command == "run":
-        cmd_run(args)
-    elif args.command == "list-providers":
-        cmd_list_providers(args)
-    elif args.command == "results":
-        cmd_results(args)
-    elif args.command == "config":
-        cmd_config(args)
 
 
 if __name__ == "__main__":
