@@ -1,361 +1,403 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WAITB — Wordle AI Benchmark</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --ink: #1a1a1a;
-            --paper: #f7f3ed;
-            --paper-dark: #ede8e0;
-            --accent: #c44536;
-            --accent-light: #e8d5d1;
-            --muted: #6b6560;
-            --line: #d4cfc7;
-            --win: #2d6a4f;
-            --loss: #c44536;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'DM Sans', sans-serif;
-            background: var(--paper);
-            color: var(--ink);
-            min-height: 100vh;
-            line-height: 1.5;
-        }
-
-        .container {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 3rem 2rem;
-        }
-
-        header {
-            margin-bottom: 3rem;
-            padding-bottom: 2rem;
-            border-bottom: 1px solid var(--line);
-        }
-
-        h1 {
-            font-family: 'Cormorant Garamond', serif;
-            font-size: clamp(2.5rem, 6vw, 4rem);
-            font-weight: 400;
-            letter-spacing: -0.02em;
-            line-height: 1.1;
-            margin-bottom: 0.5rem;
-        }
-
-        h1 em {
-            font-style: italic;
-            color: var(--accent);
-        }
-
-        .subtitle {
-            font-size: 0.95rem;
-            color: var(--muted);
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1px;
-            background: var(--line);
-            border: 1px solid var(--line);
-            margin-bottom: 3rem;
-        }
-
-        .stat-card {
-            background: var(--paper);
-            padding: 1.5rem;
-            text-align: center;
-        }
-
-        .stat-card:first-child {
-            border-radius: 8px 0 0 8px;
-        }
-
-        .stat-card:last-child {
-            border-radius: 0 8px 8px 0;
-        }
-
-        .stat-value {
-            font-family: 'Cormorant Garamond', serif;
-            font-size: 2.5rem;
-            font-weight: 600;
-            line-height: 1;
-            margin-bottom: 0.25rem;
-        }
-
-        .stat-label {
-            font-size: 0.75rem;
-            color: var(--muted);
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-        }
-
-        .section-title {
-            font-family: 'Cormorant Garamond', serif;
-            font-size: 1.75rem;
-            font-weight: 400;
-            margin-bottom: 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .section-title::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: var(--line);
-        }
-
-        .charts-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 2rem;
-            margin-bottom: 3rem;
-        }
-
-        .chart-card {
-            background: white;
-            border: 1px solid var(--line);
-            border-radius: 4px;
-            padding: 1.5rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-        }
-
-        .chart-card h3 {
-            font-size: 0.85rem;
-            font-weight: 500;
-            color: var(--muted);
-            margin-bottom: 1rem;
-            letter-spacing: 0.02em;
-            text-align: center;
-        }
-
-        .results-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9rem;
-        }
-
-        .results-table th {
-            text-align: left;
-            padding: 1rem 0.75rem;
-            font-weight: 500;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--muted);
-            border-bottom: 2px solid var(--ink);
-        }
-
-        .results-table td {
-            padding: 0.875rem 0.75rem;
-            border-bottom: 1px solid var(--line);
-            vertical-align: middle;
-        }
-
-        .results-table tr:hover td {
-            background: var(--paper-dark);
-        }
-
-        .provider-badge {
-            display: inline-block;
-            background: var(--paper-dark);
-            padding: 0.25rem 0.6rem;
-            border-radius: 2px;
-            font-size: 0.75rem;
-            font-weight: 500;
-            letter-spacing: 0.02em;
-        }
-
-        .win { 
-            color: var(--win); 
-            font-weight: 600;
-        }
-        
-        .loss { 
-            color: var(--loss); 
-            font-weight: 600;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 6rem 2rem;
-            color: var(--muted);
-        }
-
-        .loading {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 1rem;
-            padding: 4rem;
-        }
-
-        .loading-spinner {
-            width: 24px;
-            height: 24px;
-            border: 2px solid var(--line);
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .error-state {
-            text-align: center;
-            padding: 4rem;
-            color: var(--loss);
-        }
-
-        @media (max-width: 768px) {
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>WAITB — Wordle AI Benchmark</title>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap"
+            rel="stylesheet"
+        />
+        <style>
+            :root {
+                --ink: #1a1a1a;
+                --paper: #f7f3ed;
+                --paper-dark: #ede8e0;
+                --accent: #c44536;
+                --accent-light: #e8d5d1;
+                --muted: #6b6560;
+                --line: #d4cfc7;
+                --win: #2d6a4f;
+                --loss: #c44536;
             }
-            
-            .stat-card:first-child { border-radius: 4px 0 0 0; }
-            .stat-card:nth-child(2) { border-radius: 0 4px 0 0; }
-            .stat-card:nth-child(3) { border-radius: 0 0 0 4px; }
-            .stat-card:last-child { border-radius: 0 0 4px 0; }
+
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: "DM Sans", sans-serif;
+                background: var(--paper);
+                color: var(--ink);
+                min-height: 100vh;
+                line-height: 1.5;
+            }
+
+            .container {
+                max-width: 1100px;
+                margin: 0 auto;
+                padding: 3rem 2rem;
+            }
+
+            header {
+                margin-bottom: 3rem;
+                padding-bottom: 2rem;
+                border-bottom: 1px solid var(--line);
+            }
+
+            h1 {
+                font-family: "Cormorant Garamond", serif;
+                font-size: clamp(2.5rem, 6vw, 4rem);
+                font-weight: 400;
+                letter-spacing: -0.02em;
+                line-height: 1.1;
+                margin-bottom: 0.5rem;
+            }
+
+            h1 em {
+                font-style: italic;
+                color: var(--accent);
+            }
+
+            .subtitle {
+                font-size: 0.95rem;
+                color: var(--muted);
+                letter-spacing: 0.05em;
+                text-transform: uppercase;
+            }
+
+            .stats-grid {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 1px;
+                background: var(--line);
+                border: 1px solid var(--line);
+                margin-bottom: 3rem;
+            }
+
+            .stat-card {
+                background: var(--paper);
+                padding: 1.5rem;
+                text-align: center;
+            }
+
+            .stat-card:first-child {
+                border-radius: 8px 0 0 8px;
+            }
+
+            .stat-card:last-child {
+                border-radius: 0 8px 8px 0;
+            }
+
+            .stat-value {
+                font-family: "Cormorant Garamond", serif;
+                font-size: 2.5rem;
+                font-weight: 600;
+                line-height: 1;
+                margin-bottom: 0.25rem;
+            }
+
+            .stat-label {
+                font-size: 0.75rem;
+                color: var(--muted);
+                text-transform: uppercase;
+                letter-spacing: 0.1em;
+            }
+
+            .section-title {
+                font-family: "Cormorant Garamond", serif;
+                font-size: 1.75rem;
+                font-weight: 400;
+                margin-bottom: 1.5rem;
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+            }
+
+            .section-title::after {
+                content: "";
+                flex: 1;
+                height: 1px;
+                background: var(--line);
+            }
 
             .charts-grid {
-                grid-template-columns: 1fr;
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 2rem;
+                margin-bottom: 3rem;
+            }
+
+            .chart-card {
+                background: white;
+                border: 1px solid var(--line);
+                border-radius: 4px;
+                padding: 1.5rem;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+            }
+
+            .chart-card h3 {
+                font-size: 0.85rem;
+                font-weight: 500;
+                color: var(--muted);
+                margin-bottom: 1rem;
+                letter-spacing: 0.02em;
+                text-align: center;
             }
 
             .results-table {
-                font-size: 0.8rem;
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 0.9rem;
             }
-            
-            .results-table th, .results-table td {
-                padding: 0.5rem;
+
+            .results-table th {
+                text-align: left;
+                padding: 1rem 0.75rem;
+                font-weight: 500;
+                font-size: 0.75rem;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                color: var(--muted);
+                border-bottom: 2px solid var(--ink);
             }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <header>
-            <h1>Wordle <em>AI</em> Benchmark</h1>
-            <p class="subtitle">Performance tracking across providers</p>
-        </header>
 
-        <div class="loading" id="loading">
-            <div class="loading-spinner"></div>
-            <span style="color: var(--muted); font-size: 0.9rem;">Loading results...</span>
-        </div>
+            .results-table td {
+                padding: 0.875rem 0.75rem;
+                border-bottom: 1px solid var(--line);
+                vertical-align: middle;
+            }
 
-        <div id="errorState" class="error-state" style="display: none;">
-            No results found. Add your CSV file to <code style="background: var(--paper-dark); padding: 0.2rem 0.4rem; border-radius: 2px;">results/waitb_results.csv</code>
-        </div>
+            .results-table tr:hover td {
+                background: var(--paper-dark);
+            }
 
-        <div id="results" style="display: none;">
-            <div class="stats-grid" id="statsGrid"></div>
-            
-            <h2 class="section-title">Guesses by Model</h2>
-            <div class="charts-grid" style="grid-template-columns: 1fr;">
-                <div class="chart-card" style="height: 600px;">
-                    <h3>Attempts per Game by Model</h3>
-                    <canvas id="attemptsChart"></canvas>
-                </div>
+            .provider-badge {
+                display: inline-block;
+                background: var(--paper-dark);
+                padding: 0.25rem 0.6rem;
+                border-radius: 2px;
+                font-size: 0.75rem;
+                font-weight: 500;
+                letter-spacing: 0.02em;
+            }
+
+            .win {
+                color: var(--win);
+                font-weight: 600;
+            }
+
+            .loss {
+                color: var(--loss);
+                font-weight: 600;
+            }
+
+            .empty-state {
+                text-align: center;
+                padding: 6rem 2rem;
+                color: var(--muted);
+            }
+
+            .loading {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 1rem;
+                padding: 4rem;
+            }
+
+            .loading-spinner {
+                width: 24px;
+                height: 24px;
+                border: 2px solid var(--line);
+                border-top-color: var(--accent);
+                border-radius: 50%;
+                animation: spin 0.8s linear infinite;
+            }
+
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+
+            .error-state {
+                text-align: center;
+                padding: 4rem;
+                color: var(--loss);
+            }
+
+            @media (max-width: 768px) {
+                .stats-grid {
+                    grid-template-columns: repeat(2, 1fr);
+                }
+
+                .stat-card:first-child {
+                    border-radius: 4px 0 0 0;
+                }
+                .stat-card:nth-child(2) {
+                    border-radius: 0 4px 0 0;
+                }
+                .stat-card:nth-child(3) {
+                    border-radius: 0 0 0 4px;
+                }
+                .stat-card:last-child {
+                    border-radius: 0 0 4px 0;
+                }
+
+                .charts-grid {
+                    grid-template-columns: 1fr;
+                }
+
+                .results-table {
+                    font-size: 0.8rem;
+                }
+
+                .results-table th,
+                .results-table td {
+                    padding: 0.5rem;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <header>
+                <h1>Wordle <em>AI</em> Benchmark</h1>
+                <p class="subtitle">Performance tracking across providers</p>
+            </header>
+
+            <div class="loading" id="loading">
+                <div class="loading-spinner"></div>
+                <span style="color: var(--muted); font-size: 0.9rem"
+                    >Loading results...</span
+                >
             </div>
-            
-            <h2 class="section-title">Game Log</h2>
-            <table class="results-table">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Provider</th>
-                        <th>Model</th>
-                        <th>Word</th>
-                        <th>Attempts</th>
-                        <th>Result</th>
-                        <th>Time</th>
-                    </tr>
-                </thead>
-                <tbody id="resultsBody"></tbody>
-            </table>
+
+            <div id="errorState" class="error-state" style="display: none">
+                No results found. Add your CSV file to
+                <code
+                    style="
+                        background: var(--paper-dark);
+                        padding: 0.2rem 0.4rem;
+                        border-radius: 2px;
+                    "
+                    >results/waitb_results.csv</code
+                >
+            </div>
+
+            <div id="results" style="display: none">
+                <div class="stats-grid" id="statsGrid"></div>
+
+                <h2 class="section-title">Guesses by Model</h2>
+                <div class="charts-grid" style="grid-template-columns: 1fr">
+                    <div class="chart-card" style="height: 600px">
+                        <h3>Attempts per Game by Model</h3>
+                        <canvas id="attemptsChart"></canvas>
+                    </div>
+                </div>
+
+                <h2 class="section-title">Game Log</h2>
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Provider</th>
+                            <th>Model</th>
+                            <th>Word</th>
+                            <th>Attempts</th>
+                            <th>Result</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody"></tbody>
+                </table>
+            </div>
         </div>
-    </div>
-    
-    <script>
-        let results = [];
-        let charts = {};
-        
-        const colors = ['#1a1a1a', '#c44536', '#2d6a4f', '#457b9d', '#8338ec', '#ff6b6b'];
-        
-        Chart.defaults.font.family = "'DM Sans', sans-serif";
-        Chart.defaults.color = '#6b6560';
-        
-        function parseCSV(text) {
-            const lines = text.trim().split('\n');
-            if (lines.length < 2) return [];
-            
-            const headers = lines[0].split(',').map(h => h.trim());
-            const data = [];
-            
-            for (let i = 1; i < lines.length; i++) {
-                const values = lines[i].split(',').map(v => v.trim());
-                if (values.length < headers.length) continue;
-                
-                const row = {};
-                headers.forEach((h, idx) => {
-                    row[h] = values[idx];
-                });
-                
-                row.attempts = parseInt(row.attempts) || 0;
-                row.won = row.won && row.won.toLowerCase() === 'true';
-                row.total_time = parseFloat(row.total_time) || 0;
-                row.guess_times = row.guess_times ? row.guess_times.split(';').map(parseFloat) : [];
-                
-                data.push(row);
+
+        <script>
+            let results = [];
+            let charts = {};
+
+            const colors = [
+                "#1a1a1a",
+                "#c44536",
+                "#2d6a4f",
+                "#457b9d",
+                "#8338ec",
+                "#ff6b6b",
+            ];
+
+            Chart.defaults.font.family = "'DM Sans', sans-serif";
+            Chart.defaults.color = "#6b6560";
+
+            function parseCSV(text) {
+                const lines = text.trim().split("\n");
+                if (lines.length < 2) return [];
+
+                const headers = lines[0].split(",").map((h) => h.trim());
+                const data = [];
+
+                for (let i = 1; i < lines.length; i++) {
+                    const values = lines[i].split(",").map((v) => v.trim());
+                    if (values.length < headers.length) continue;
+
+                    const row = {};
+                    headers.forEach((h, idx) => {
+                        row[h] = values[idx];
+                    });
+
+                    row.attempts = parseInt(row.attempts) || 0;
+                    row.won = row.won && row.won.toLowerCase() === "true";
+                    row.total_time = parseFloat(row.total_time) || 0;
+                    row.guess_times = row.guess_times
+                        ? row.guess_times.split(";").map(parseFloat)
+                        : [];
+
+                    data.push(row);
+                }
+
+                return data;
             }
-            
-            return data;
-        }
-        
-        function renderResults() {
-            if (results.length === 0) {
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('errorState').style.display = 'block';
-                return;
+
+            function renderResults() {
+                if (results.length === 0) {
+                    document.getElementById("loading").style.display = "none";
+                    document.getElementById("errorState").style.display =
+                        "block";
+                    return;
+                }
+
+                document.getElementById("loading").style.display = "none";
+                document.getElementById("errorState").style.display = "none";
+                document.getElementById("results").style.display = "block";
+
+                renderStats();
+                renderCharts();
+                renderTable();
             }
-            
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('errorState').style.display = 'none';
-            document.getElementById('results').style.display = 'block';
-            
-            renderStats();
-            renderCharts();
-            renderTable();
-        }
-        
-        function renderStats() {
-            const total = results.length;
-            const wins = results.filter(r => r.won).length;
-            const winRate = total > 0 ? (wins / total * 100).toFixed(1) : 0;
-            const avgAttempts = total > 0 ? (results.reduce((sum, r) => sum + r.attempts, 0) / total).toFixed(1) : 0;
-            const totalModels = [...new Set(results.map(r => r.model))].length;
-            
-            document.getElementById('statsGrid').innerHTML = `
+
+            function renderStats() {
+                const total = results.length;
+                const wins = results.filter((r) => r.won).length;
+                const winRate =
+                    total > 0 ? ((wins / total) * 100).toFixed(1) : 0;
+                const avgAttempts =
+                    total > 0
+                        ? (
+                              results.reduce((sum, r) => sum + r.attempts, 0) /
+                              total
+                          ).toFixed(1)
+                        : 0;
+                const totalModels = [...new Set(results.map((r) => r.model))]
+                    .length;
+
+                document.getElementById("statsGrid").innerHTML = `
                 <div class="stat-card">
                     <div class="stat-value">${total}</div>
                     <div class="stat-label">Total Games</div>
@@ -373,133 +415,180 @@
                     <div class="stat-label">Models</div>
                 </div>
             `;
-        }
-        
-        function renderCharts() {
-            try {
-                Object.values(charts).forEach(c => c.destroy());
-                charts = {};
-                
-                const modelStats = {};
-                
-                results.forEach(r => {
-                    if (!modelStats[r.model]) {
-                        modelStats[r.model] = { totalAttempts: 0, games: 0, wins: 0, provider: r.provider };
-                    }
-                    modelStats[r.model].totalAttempts += r.attempts;
-                    modelStats[r.model].games += 1;
-                    if (r.won) modelStats[r.model].wins += 1;
-                });
-                
-                const models = Object.keys(modelStats);
-                if (models.length === 0) return;
-                
-                const avgAttempts = models.map(m => Math.round(modelStats[m].totalAttempts / modelStats[m].games));
-                
-                const palette = ['#1a1a1a', '#c44536', '#2d6a4f', '#457b9d', '#8338ec', '#ff6b6b', '#f4a261', '#e76f51', '#264653', '#a8dadc'];
-                const barColors = models.map((m, i) => {
-                    const isAllWins = modelStats[m].wins === modelStats[m].games;
-                    return isAllWins ? palette[i % palette.length] : '#cccccc';
-                });
-                const tooltipBorderColors = models.map((m, i) => palette[i % palette.length]);
-            
-            charts.attempts = new Chart(document.getElementById('attemptsChart'), {
-                type: 'bar',
-                data: {
-                    labels: models,
-                    datasets: [{
-                        label: 'Avg Attempts',
-                        data: avgAttempts,
-                        backgroundColor: barColors,
-                        borderColor: barColors,
-                        borderWidth: 2,
-                        borderRadius: 3,
-                        barThickness: 40,
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    indexAxis: 'x',
-                    plugins: { 
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: '#fff',
-                            titleColor: '#1a1a1a',
-                            bodyColor: '#1a1a1a',
-                            borderColor: (context) => tooltipBorderColors[context.dataIndex] || '#1a1a1a',
-                            borderWidth: 2,
-                            cornerRadius: 4,
-                            callbacks: {
-                                afterLabel: function(context) {
-                                    const model = models[context.dataIndex];
-                                    const stats = modelStats[model];
-                                    return [stats.provider, `Games: ${stats.games}`, `Wins: ${stats.wins}`];
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: { 
-                            beginAtZero: true,
-                            max: 7,
-                            grid: { color: '#d4cfc7' },
-                            border: { display: false },
-                            title: {
-                                display: true,
-                                text: 'Avg Guesses',
-                                font: { weight: '500' }
-                            }
-                        },
-                        x: { 
-                            grid: { display: false },
-                            border: { display: false },
-                            ticks: { 
-                                maxRotation: 45,
-                                minRotation: 45,
-                                font: { size: 11 }
-                            }
-                        }
-                    }
-                }
-            });
-            } catch (e) {
-                console.error('Error rendering charts:', e);
             }
-        }
-        
-        function renderTable() {
-            const sorted = [...results].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-            
-            document.getElementById('resultsBody').innerHTML = sorted.map(r => {
-                const date = new Date(r.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                return `
+
+            function renderCharts() {
+                try {
+                    Object.values(charts).forEach((c) => c.destroy());
+                    charts = {};
+
+                    const modelStats = {};
+
+                    results.forEach((r) => {
+                        if (!modelStats[r.model]) {
+                            modelStats[r.model] = {
+                                totalAttempts: 0,
+                                games: 0,
+                                wins: 0,
+                                provider: r.provider,
+                            };
+                        }
+                        modelStats[r.model].totalAttempts += r.attempts;
+                        modelStats[r.model].games += 1;
+                        if (r.won) modelStats[r.model].wins += 1;
+                    });
+
+                    const models = Object.keys(modelStats);
+                    if (models.length === 0) return;
+
+                    const avgAttempts = models.map((m) =>
+                        Math.round(
+                            modelStats[m].totalAttempts / modelStats[m].games,
+                        ),
+                    );
+
+                    const palette = [
+                        "#1a1a1a",
+                        "#c44536",
+                        "#2d6a4f",
+                        "#457b9d",
+                        "#8338ec",
+                        "#ff6b6b",
+                        "#f4a261",
+                        "#e76f51",
+                        "#264653",
+                        "#a8dadc",
+                    ];
+                    const barColors = models.map((m, i) => {
+                        const isAllWins =
+                            modelStats[m].wins === modelStats[m].games;
+                        return isAllWins
+                            ? palette[i % palette.length]
+                            : "#cccccc";
+                    });
+                    const tooltipBorderColors = models.map(
+                        (m, i) => palette[i % palette.length],
+                    );
+
+                    charts.attempts = new Chart(
+                        document.getElementById("attemptsChart"),
+                        {
+                            type: "bar",
+                            data: {
+                                labels: models,
+                                datasets: [
+                                    {
+                                        label: "Avg Attempts",
+                                        data: avgAttempts,
+                                        backgroundColor: barColors,
+                                        borderColor: barColors,
+                                        borderWidth: 2,
+                                        borderRadius: 3,
+                                        barThickness: 40,
+                                    },
+                                ],
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                indexAxis: "x",
+                                plugins: {
+                                    legend: { display: false },
+                                    tooltip: {
+                                        backgroundColor: "#fff",
+                                        titleColor: "#1a1a1a",
+                                        bodyColor: "#1a1a1a",
+                                        borderColor: (context) =>
+                                            tooltipBorderColors[
+                                                context.dataIndex
+                                            ] || "#1a1a1a",
+                                        borderWidth: 2,
+                                        cornerRadius: 4,
+                                        displayColors: false,
+                                        callbacks: {
+                                            afterLabel: function (context) {
+                                                const model =
+                                                    models[context.dataIndex];
+                                                const stats = modelStats[model];
+                                                return [
+                                                    stats.provider,
+                                                    `Games: ${stats.games}`,
+                                                    `Wins: ${stats.wins}`,
+                                                ];
+                                            },
+                                        },
+                                    },
+                                },
+                                scales: {
+                                    y: {
+                                        beginAtZero: true,
+                                        max: 7,
+                                        grid: { color: "#d4cfc7" },
+                                        border: { display: false },
+                                        title: {
+                                            display: true,
+                                            text: "Avg Guesses",
+                                            font: { weight: "500" },
+                                        },
+                                    },
+                                    x: {
+                                        grid: { display: false },
+                                        border: { display: false },
+                                        ticks: {
+                                            maxRotation: 45,
+                                            minRotation: 45,
+                                            font: { size: 11 },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    );
+                } catch (e) {
+                    console.error("Error rendering charts:", e);
+                }
+            }
+
+            function renderTable() {
+                const sorted = [...results].sort(
+                    (a, b) => new Date(b.timestamp) - new Date(a.timestamp),
+                );
+
+                document.getElementById("resultsBody").innerHTML = sorted
+                    .map((r) => {
+                        const date = new Date(r.timestamp).toLocaleDateString(
+                            "en-US",
+                            { month: "short", day: "numeric", year: "numeric" },
+                        );
+                        return `
                     <tr>
                         <td>${date}</td>
                         <td><span class="provider-badge">${r.provider}</span></td>
                         <td>${r.model}</td>
                         <td><strong>${r.word}</strong></td>
                         <td>${r.attempts}</td>
-                        <td class="${r.won ? 'win' : 'loss'}">${r.won ? 'WIN' : 'LOSS'}</td>
+                        <td class="${r.won ? "win" : "loss"}">${r.won ? "WIN" : "LOSS"}</td>
                         <td>${r.total_time.toFixed(1)}s</td>
                     </tr>
                 `;
-            }).join('');
-        }
-        
-        fetch('results/waitb_results.csv')
-            .then(r => {
-                if (r.ok) return r.text();
-                throw new Error('CSV not found');
-            })
-            .then(text => {
-                results = parseCSV(text);
-                renderResults();
-            })
-            .catch(() => {
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('errorState').style.display = 'block';
-            });
-    </script>
-</body>
+                    })
+                    .join("");
+            }
+
+            fetch("results/waitb_results.csv")
+                .then((r) => {
+                    if (r.ok) return r.text();
+                    throw new Error("CSV not found");
+                })
+                .then((text) => {
+                    results = parseCSV(text);
+                    renderResults();
+                })
+                .catch(() => {
+                    document.getElementById("loading").style.display = "none";
+                    document.getElementById("errorState").style.display =
+                        "block";
+                });
+        </script>
+    </body>
 </html>
