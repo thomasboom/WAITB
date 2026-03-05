@@ -353,7 +353,7 @@
             const wins = results.filter(r => r.won).length;
             const winRate = total > 0 ? (wins / total * 100).toFixed(1) : 0;
             const avgAttempts = total > 0 ? (results.reduce((sum, r) => sum + r.attempts, 0) / total).toFixed(1) : 0;
-            const avgTime = total > 0 ? (results.reduce((sum, r) => sum + r.total_time, 0) / total).toFixed(1) : 0;
+            const totalModels = [...new Set(results.map(r => r.model))].length;
             
             document.getElementById('statsGrid').innerHTML = `
                 <div class="stat-card">
@@ -369,8 +369,8 @@
                     <div class="stat-label">Avg Attempts</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">${avgTime}s</div>
-                    <div class="stat-label">Avg Time</div>
+                    <div class="stat-value">${totalModels}</div>
+                    <div class="stat-label">Models</div>
                 </div>
             `;
         }
