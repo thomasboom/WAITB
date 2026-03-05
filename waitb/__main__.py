@@ -2,15 +2,15 @@
 
 import argparse
 import os
+import re
 import sys
 import time
-import re
 from datetime import datetime
 
-from waitb.wordle import WordleGame, is_valid_word
-from waitb.providers import get_provider, list_providers, Message
-from waitb.results import ResultsLogger, GameResult
 from waitb.config import Config
+from waitb.providers import Message, get_provider, list_providers
+from waitb.results import GameResult, ResultsLogger
+from waitb.wordle import WordleGame, is_valid_word
 
 
 def prompt(prompt_text: str) -> str:
@@ -24,7 +24,7 @@ def prompt_choice(prompt_text: str, choices: list, show_numbers: bool = True) ->
             print(f"  [{i + 1}] {choice}")
         else:
             print(f"  - {choice}")
-    
+
     while True:
         try:
             if show_numbers:
@@ -49,37 +49,59 @@ def prompt_yes_no(prompt_text: str) -> bool:
             return False
 
 
+class GuessExtractionError(Exception):
+    """Raised when a valid guess cannot be extracted from the response"""
+
+    pass
+
+
 def extract_guess(response: str) -> str:
+    """Extract a valid 5-letter guess from the model response.
+
+    Args:
+        response: Raw model response text
+
+    Returns:
+        A valid 5-letter guess
+
+    Raises:
+        GuessExtractionError: If no valid guess can be extracted
+    """
+    if not response or not response.strip():
+        raise GuessExtractionError("Empty response from model")
+
     response = response.strip().upper()
-    words = re.findall(r'\b[A-Z]{5}\b', response)
-    
+    words = re.findall(r"\b[A-Z]{5}\b", response)
+
     for word in words:
         if is_valid_word(word):
             return word
-    
+
     for word in words:
         if len(word) == 5 and word.isalpha():
             return word
-    
-    return None
+
+    raise GuessExtractionError(
+        f"No valid 5-letter word found in response: {response[:200]}"
+    )
 
 
 def setup_provider_interactive() -> tuple:
     print("\n" + "=" * 50)
     print("PROVIDER SETUP")
     print("=" * 50)
-    
+
     providers = list_providers()
     idx = prompt_choice("Select provider", providers)
     provider_name = providers[idx]
-    
+
     provider = get_provider(provider_name)
     env_var = provider.get_api_key_env()
-    
+
     if env_var:
         existing_key = os.environ.get(env_var, "")
         use_existing = prompt_yes_no(f"Use existing {env_var}?")
-        
+
         if use_existing and existing_key:
             api_key = existing_key
             print(f"Using existing API key (starts with {api_key[:8]}...)")
@@ -89,78 +111,114 @@ def setup_provider_interactive() -> tuple:
     else:
         api_key = None
         print("No API key required (local provider)")
-    
+
     model = prompt("Enter model name").strip()
-    
+
     print(f"\nProvider: {provider_name}")
     print(f"Model: {model}")
-    
+
     return provider, model
 
 
-def run_game(provider, model: str = None, target_word: str = None, csv_path: str = None):
-    print(f"\n{'='*50}")
+def run_game(
+    provider,
+    model: str = None,
+    target_word: str = None,
+    csv_path: str = None,
+    show_raw: bool = False,
+):
+    print(f"\n{'=' * 50}")
     print(f"Starting Wordle game")
     if target_word:
         print(f"Target word: {target_word}")
     print(f"Provider: {provider.name}, Model: {model or 'default'}")
-    print(f"{'='*50}\n")
-    
+    print(f"{'=' * 50}\n")
+
     game = WordleGame(target=target_word)
     messages = [
         Message(role="system", content=provider.get_system_prompt()),
     ]
-    
+
     guess_times = []
     start_time = time.time()
-    
+    consecutive_errors = 0
+    max_consecutive_errors = 3
+
     while not game.game_over:
         game_state = game.get_state_for_ai()
         prompt_text = provider.get_turn_prompt(game_state)
-        
+
         messages.append(Message(role="user", content=prompt_text))
-        
+
         try:
             guess_start = time.time()
             response = provider.chat(messages, model)
             guess_time = time.time() - guess_start
             guess_times.append(guess_time)
-            
+
+            if show_raw:
+                print(f"\n  [RAW RESPONSE]:\n{response}\n")
+
             messages.append(Message(role="assistant", content=response))
-            
+
+            consecutive_errors = 0
             guess = extract_guess(response)
-            
+
             if not guess:
-                print(f"  Could not extract valid guess from response: {response[:100]}...")
+                print(f"  Could not extract valid guess from response")
                 continue
-            
+
             print(f"  Guess {len(game.attempts) + 1}: {guess} ({guess_time:.1f}s)")
-            
+
             success, feedback = game.make_guess(guess)
-            
+
             if not success:
                 print(f"  Invalid: {feedback[0]}")
                 continue
-            
+
             fb_display = "".join(
-                "G" if f == "G" else "Y" if f == "Y" else "_"
-                for f in feedback
+                "G" if f == "G" else "Y" if f == "Y" else "_" for f in feedback
             )
             print(f"  Feedback: {fb_display}")
-            
+
+        except GuessExtractionError as e:
+            consecutive_errors += 1
+            print(f"  Warning: {e}")
+            if consecutive_errors >= max_consecutive_errors:
+                print(
+                    f"  Error: Too many consecutive extraction failures ({max_consecutive_errors}). Aborting game."
+                )
+                break
+            print(
+                f"  Retrying... (attempt {consecutive_errors}/{max_consecutive_errors})"
+            )
+            continue
+
         except Exception as e:
-            print(f"  Error: {e}")
-            break
-    
+            consecutive_errors += 1
+            error_msg = f"Error from provider: {type(e).__name__}: {e}"
+            print(f"  {error_msg}")
+
+            if consecutive_errors >= max_consecutive_errors:
+                print(
+                    f"  Error: Too many consecutive errors ({max_consecutive_errors}). Aborting game."
+                )
+                break
+
+            print(
+                f"  Retrying... (attempt {consecutive_errors}/{max_consecutive_errors})"
+            )
+            continue
+
     total_time = time.time() - start_time
-    
-    print(f"\n{'='*50}")
+
+    print(f"\n{'=' * 50}")
     if game.won:
         print(f"WON! Solved in {len(game.attempts)} attempts ({total_time:.1f}s)")
     else:
         print(f"LOST! The word was: {game.target}")
-    print(f"{'='*50}\n")
-    
+    print(f"{'=' * 50}\n")
+
     result = GameResult(
         timestamp=datetime.now().isoformat(),
         provider=provider.name,
@@ -171,34 +229,34 @@ def run_game(provider, model: str = None, target_word: str = None, csv_path: str
         guess_times=guess_times,
         total_time=total_time,
     )
-    
+
     if csv_path:
         logger = ResultsLogger(csv_path)
         logger.log(result)
         print(f"Results saved to {csv_path}")
-    
+
     return result
 
 
-def run_benchmark_interactive():
+def run_benchmark_interactive(show_raw: bool = False):
     provider, model = setup_provider_interactive()
-    
+
     print("\n" + "=" * 50)
     print("GAME SETUP")
     print("=" * 50)
-    
+
     num_games = prompt("How many games to play? (default: 1)")
     if not num_games:
         num_games = 1
     else:
         num_games = int(num_games)
-    
+
     use_specific_word = prompt_yes_no("Use a specific word?")
     if use_specific_word:
         target_word = prompt("Enter the 5-letter word").upper()
     else:
         target_word = None
-    
+
     save_results = prompt_yes_no("Save results to CSV?")
     if save_results:
         csv_path = prompt("CSV file path (default: waitb_results.csv)")
@@ -206,16 +264,16 @@ def run_benchmark_interactive():
             csv_path = "waitb_results.csv"
     else:
         csv_path = None
-    
+
     for i in range(num_games):
         if num_games > 1:
-            print(f"\n{'='*50}")
+            print(f"\n{'=' * 50}")
             print(f"GAME {i + 1}/{num_games}")
-            print(f"{'='*50}")
-        
+            print(f"{'=' * 50}")
+
         target = target_word
-        run_game(provider, model, target, csv_path)
-    
+        run_game(provider, model, target, csv_path, show_raw=show_raw)
+
     if csv_path and num_games > 1:
         print(f"\nAll games complete! Results saved to {csv_path}")
 
@@ -224,12 +282,12 @@ def show_providers():
     print("\n" + "=" * 50)
     print("AVAILABLE PROVIDERS")
     print("=" * 50)
-    
+
     for p in list_providers():
         print(f"\n{p.upper()}:")
         provider = get_provider(p)
         env_var = provider.get_api_key_env()
-        
+
         if env_var:
             print(f"  API Key: {env_var}")
         else:
@@ -240,7 +298,7 @@ def show_results():
     print("\n" + "=" * 50)
     print("RESULTS SUMMARY")
     print("=" * 50)
-    
+
     logger = ResultsLogger()
     logger.print_summary()
 
@@ -255,11 +313,12 @@ def interactive_menu():
         print("  [3] Show results")
         print("  [4] View results in browser")
         print("  [5] Exit")
-        
+
         choice = prompt("Choose an option")
-        
+
         if choice == "1":
-            run_benchmark_interactive()
+            show_raw = prompt_yes_no("Show raw model responses?")
+            run_benchmark_interactive(show_raw=show_raw)
         elif choice == "2":
             show_providers()
         elif choice == "3":
@@ -275,11 +334,11 @@ def interactive_menu():
 
 def main():
     args = parse_args()
-    
+
     if not args.command:
         interactive_menu()
         return
-    
+
     if args.command == "run":
         cmd_run(args)
     elif args.command == "list-providers":
@@ -294,41 +353,49 @@ def main():
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="WAITB - Wordle AI Terminal Benchmark",
-        prog="waitb"
+        description="WAITB - Wordle AI Terminal Benchmark", prog="waitb"
     )
-    
+
     subparsers = parser.add_subparsers(dest="command", help="Commands")
-    
+
     run_parser = subparsers.add_parser("run", help="Run a benchmark game")
     run_parser.add_argument("--provider", "-p", help="LLM provider to use")
     run_parser.add_argument("--model", "-m", help="Model to use")
-    run_parser.add_argument("--games", "-g", type=int, default=1, help="Number of games to play")
-    run_parser.add_argument("--word", "-w", help="Specific word to play (random if not set)")
+    run_parser.add_argument(
+        "--games", "-g", type=int, default=1, help="Number of games to play"
+    )
+    run_parser.add_argument(
+        "--word", "-w", help="Specific word to play (random if not set)"
+    )
     run_parser.add_argument("--csv", help="Path to CSV results file")
-    
+    run_parser.add_argument(
+        "--raw",
+        action="store_true",
+        help="Show raw model responses during benchmarking",
+    )
+
     subparsers.add_parser("list-providers", help="List available providers")
     subparsers.add_parser("results", help="Show results summary")
     subparsers.add_parser("view", help="Open results in browser")
     subparsers.add_parser("config", help="Show configuration")
-    
+
     return parser.parse_args()
 
 
 def cmd_run(args):
     config = Config()
-    
+
     provider_name = args.provider or config.get("default_provider", "openai")
     model = args.model or config.get("default_model")
     csv_path = args.csv or config.get("csv_path")
-    
+
     try:
         provider = get_provider(provider_name)
     except ValueError as e:
         print(f"Error: {e}")
         print("\nAvailable providers: " + ", ".join(list_providers()))
         sys.exit(1)
-    
+
     env_var = provider.get_api_key_env()
     if env_var and not os.environ.get(env_var):
         print(f"Warning: {env_var} environment variable not set")
@@ -336,13 +403,13 @@ def cmd_run(args):
             print("Note: Ollama runs locally, no API key required")
         else:
             print("Results may fail without proper API key")
-    
+
     for i in range(args.games):
         if args.games > 1:
             print(f"\n=== Game {i + 1}/{args.games} ===")
-        
+
         target = args.word
-        run_game(provider, model, target, csv_path)
+        run_game(provider, model, target, csv_path, show_raw=args.raw)
 
 
 def cmd_list_providers(args):
@@ -354,16 +421,16 @@ def cmd_results(args):
 
 
 def cmd_view(args):
-    import webbrowser
     import os
-    
+    import webbrowser
+
     docs_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "docs")
     index_path = os.path.join(docs_dir, "index.html")
-    
+
     if not os.path.exists(index_path):
         print(f"Error: {index_path} not found")
         sys.exit(1)
-    
+
     file_url = f"file://{os.path.abspath(index_path)}"
     print(f"Opening results viewer...")
     webbrowser.open(file_url)
