@@ -144,6 +144,7 @@
             color: var(--muted);
             margin-bottom: 1rem;
             letter-spacing: 0.02em;
+            text-align: center;
         }
 
         .results-table {
@@ -269,23 +270,11 @@
         <div id="results" style="display: none;">
             <div class="stats-grid" id="statsGrid"></div>
             
-            <h2 class="section-title">Performance by Provider</h2>
-            <div class="charts-grid">
-                <div class="chart-card">
-                    <h3>Win Rate</h3>
-                    <canvas id="winRateChart"></canvas>
-                </div>
-                <div class="chart-card">
-                    <h3>Average Attempts</h3>
+            <h2 class="section-title">Guesses by Model</h2>
+            <div class="charts-grid" style="grid-template-columns: 1fr;">
+                <div class="chart-card" style="height: 600px;">
+                    <h3>Attempts per Game by Model</h3>
                     <canvas id="attemptsChart"></canvas>
-                </div>
-                <div class="chart-card">
-                    <h3>Average Time (seconds)</h3>
-                    <canvas id="timeChart"></canvas>
-                </div>
-                <div class="chart-card">
-                    <h3>Games Over Time</h3>
-                    <canvas id="timelineChart"></canvas>
                 </div>
             </div>
             
@@ -333,7 +322,7 @@
                 });
                 
                 row.attempts = parseInt(row.attempts) || 0;
-                row.won = row.won === 'true';
+                row.won = row.won && row.won.toLowerCase() === 'true';
                 row.total_time = parseFloat(row.total_time) || 0;
                 row.guess_times = row.guess_times ? row.guess_times.split(';').map(parseFloat) : [];
                 
@@ -387,164 +376,82 @@
         }
         
         function renderCharts() {
-            Object.values(charts).forEach(c => c.destroy());
-            charts = {};
-            
-            const providers = [...new Set(results.map(r => r.provider))];
-            const providerWins = {};
-            const providerGames = {};
-            const providerAttempts = {};
-            const providerTime = {};
-            
-            providers.forEach(p => {
-                providerWins[p] = 0;
-                providerGames[p] = 0;
-                providerAttempts[p] = 0;
-                providerTime[p] = 0;
-            });
-            
-            results.forEach(r => {
-                providerGames[r.provider]++;
-                if (r.won) providerWins[r.provider]++;
-                providerAttempts[r.provider] += r.attempts;
-                providerTime[r.provider] += r.total_time;
-            });
-            
-            const winRates = providers.map(p => 
-                providerGames[p] > 0 ? (providerWins[p] / providerGames[p] * 100).toFixed(1) : 0
-            );
-            const avgAttempts = providers.map(p => 
-                providerGames[p] > 0 ? (providerAttempts[p] / providerGames[p]).toFixed(1) : 0
-            );
-            const avgTimes = providers.map(p => 
-                providerGames[p] > 0 ? (providerTime[p] / providerGames[p]).toFixed(1) : 0
-            );
-            
-            charts.winRate = new Chart(document.getElementById('winRateChart'), {
-                type: 'bar',
-                data: {
-                    labels: providers,
-                    datasets: [{
-                        label: 'Win Rate (%)',
-                        data: winRates,
-                        backgroundColor: colors.slice(0, providers.length),
-                        borderRadius: 2,
-                        barThickness: 32,
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { 
-                            beginAtZero: true, 
-                            max: 100, 
-                            grid: { color: '#d4cfc7' },
-                            border: { display: false }
-                        },
-                        x: { 
-                            grid: { display: false },
-                            border: { display: false }
-                        }
+            try {
+                Object.values(charts).forEach(c => c.destroy());
+                charts = {};
+                
+                const modelStats = {};
+                
+                results.forEach(r => {
+                    if (!modelStats[r.model]) {
+                        modelStats[r.model] = { totalAttempts: 0, games: 0, wins: 0 };
                     }
-                }
-            });
+                    modelStats[r.model].totalAttempts += r.attempts;
+                    modelStats[r.model].games += 1;
+                    if (r.won) modelStats[r.model].wins += 1;
+                });
+                
+                const models = Object.keys(modelStats);
+                if (models.length === 0) return;
+                
+                const avgAttempts = models.map(m => Math.round(modelStats[m].totalAttempts / modelStats[m].games));
+                const barColors = models.map(m => modelStats[m].wins === modelStats[m].games ? '#1a1a1a' : '#cccccc');
             
             charts.attempts = new Chart(document.getElementById('attemptsChart'), {
                 type: 'bar',
                 data: {
-                    labels: providers,
+                    labels: models,
                     datasets: [{
                         label: 'Avg Attempts',
                         data: avgAttempts,
-                        backgroundColor: colors.slice(0, providers.length),
-                        borderRadius: 2,
-                        barThickness: 32,
+                        backgroundColor: barColors,
+                        borderRadius: 3,
+                        barThickness: 40,
                     }]
                 },
                 options: {
                     responsive: true,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { 
-                            beginAtZero: true, 
-                            grid: { color: '#d4cfc7' },
-                            border: { display: false }
-                        },
-                        x: { 
-                            grid: { display: false },
-                            border: { display: false }
+                    maintainAspectRatio: false,
+                    indexAxis: 'x',
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                afterLabel: function(context) {
+                                    const model = models[context.dataIndex];
+                                    const stats = modelStats[model];
+                                    return `Games: ${stats.games} | Wins: ${stats.wins}`;
+                                }
+                            }
                         }
-                    }
-                }
-            });
-            
-            charts.time = new Chart(document.getElementById('timeChart'), {
-                type: 'bar',
-                data: {
-                    labels: providers,
-                    datasets: [{
-                        label: 'Avg Time (s)',
-                        data: avgTimes,
-                        backgroundColor: colors.slice(0, providers.length),
-                        borderRadius: 2,
-                        barThickness: 32,
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { 
-                            beginAtZero: true, 
-                            grid: { color: '#d4cfc7' },
-                            border: { display: false }
-                        },
-                        x: { 
-                            grid: { display: false },
-                            border: { display: false }
-                        }
-                    }
-                }
-            });
-            
-            const sortedByDate = [...results].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-            const gameNumbers = sortedByDate.map((_, i) => `Game ${i + 1}`);
-            const gameResults = sortedByDate.map(r => r.won ? r.attempts : null);
-            
-            charts.timeline = new Chart(document.getElementById('timelineChart'), {
-                type: 'line',
-                data: {
-                    labels: gameNumbers,
-                    datasets: [{
-                        label: 'Attempts',
-                        data: sortedByDate.map(r => r.attempts),
-                        borderColor: '#c44536',
-                        backgroundColor: 'rgba(196, 69, 54, 0.08)',
-                        fill: true,
-                        tension: 0.3,
-                        pointRadius: 3,
-                        pointBackgroundColor: '#c44536',
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    interaction: { mode: 'index', intersect: false },
-                    plugins: { legend: { display: false } },
+                    },
                     scales: {
                         y: { 
                             beginAtZero: true,
+                            max: 7,
                             grid: { color: '#d4cfc7' },
-                            border: { display: false }
+                            border: { display: false },
+                            title: {
+                                display: true,
+                                text: 'Avg Guesses',
+                                font: { weight: '500' }
+                            }
                         },
                         x: { 
                             grid: { display: false },
                             border: { display: false },
-                            ticks: { maxTicksLimit: 10 }
+                            ticks: { 
+                                maxRotation: 45,
+                                minRotation: 45,
+                                font: { size: 11 }
+                            }
                         }
                     }
                 }
             });
+            } catch (e) {
+                console.error('Error rendering charts:', e);
+            }
         }
         
         function renderTable() {
